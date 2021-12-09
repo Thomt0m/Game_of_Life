@@ -1,3 +1,28 @@
+'''
+Game of Life
+Written by Thomas A.
+Based on the Game of Life by John Conway
+
+
+User Guide;
+
+To start, run Game_of_Life.py
+This will display the Game of Life, fullscreen
+
+In the top left, you will see a pause-play button
+You can click this, or press spacebar, to start and pause the running of the Game of Life
+While paused, you can click on any cell in the grid to changed its state (alive of dead)
+
+TODO continue
+
+
+
+
+'''
+
+
+
+
 import sys
 import time
 import pygame
@@ -31,23 +56,26 @@ class GameOfLife:
         pygame.display.set_caption("Game of Life")
         self.screen = pygame.display.set_mode((0,0), pygame.FULLSCREEN)
         self.screen_rect = self.screen.get_rect()
-        self.dirty_rects = []
         self.refresh_entire_display = True
 
         self._time0 = time.time()
-        self.running = True
-        self.playing = False
+
+        #self._bg_line_dist = max(self.screen_rect.width, self.screen_rect.height) / self.settings.gol.grid_cells_screen
+        #self._bg_hor_dim = self.screen_rect.width / self._bg_line_dist
+        #self._bg_vert_dim = self.screen_rect.height / self._bg_line_dist
 
 
-        self.background = BackgroundGrid(self.screen_rect.size, self.grid_dim_length)
+        self.background = BackgroundGrid(self.screen_rect.size, self.settings.gol.grid_cells_screen)
 
         self.pause_symbol = PauseButton(self.screen_rect.size)
         self.pause_symbol.rect.topleft = self.pause_symbol.rect.center
 
-        self.layers:list[Layer] = []
-        self.layers.append(Layer('Background', [self.background]))
-        self.layers.append(Layer('Cells'))
-        self.layers.append(Layer('UI', [self.pause_symbol]))
+
+
+
+
+        self.running = True
+        self.playing = False
 
 
 
@@ -69,6 +97,7 @@ class GameOfLife:
 
 
     def set_playing(self, playing:bool):
+        """Set whether the game is playing, or paused"""
         self.playing = playing
         self.pause_symbol.set_surface(playing)
 
@@ -147,26 +176,21 @@ class GameOfLife:
 
 
     def update_screen(self):
-        """Update the elements of the screen, and draw the updated version"""
+        """Update the elements of the screen, and draw the newly constructed screen"""
+        self._screen_draw_all_elements()
+        pygame.display.flip()
 
-        if self.refresh_entire_display:
-            self._screen_redraw_all()
-            pygame.display.flip()
-            self.refresh_entire_display = False
-        else:
-            self._find_dirty_rects()
-            pygame.display.update(self.dirty_rects)
-        
-        self.dirty_rects.clear()
 
-    def _screen_redraw_all(self):
+    def _screen_draw_all_elements(self):
+        """Draw all elements onto the screen. In order of back-to-front"""
+        # ORDER MATTERS, objects further down get drawn over(on top of) the ones before
         self._screen_draw_background()
         self._screen_draw_cells()
         self._screen_draw_pause_button()
 
     def _screen_draw_background(self):
         """Draw the background grid onto screen (covers whole screen)"""
-        self.dirty_rects.append(self.screen.blit(self.background.surface, self.background.rect))
+        self.screen.blit(self.background.surface, self.background.rect)
 
     def _screen_draw_cells(self):
         """Draw the cells of the 'Game of Life' onto screen"""
@@ -174,28 +198,7 @@ class GameOfLife:
 
     def _screen_draw_pause_button(self):
         """Draw the pause button onto screen"""
-        self.dirty_rects.append(self.screen.blit(self.pause_symbol.surface, self.pause_symbol.rect))
-
-
-    def _find_dirty_rects(self):
-        for layer in range(len(self.layers)):
-            for element in range(len(self.layers[layer].elements)):
-                if self.layers[layer].elements[element].dirty:
-                    self._redraw_element(layer, element)
-                    self.layers[layer].elements[element].dirty = False
-
-    def _redraw_element(self, l0:int='layer', e0:int='element'):
-        """Redraw the element on screen, first drawing all elements behind this one. Can not handle movement of element"""
-        for l1 in range(min(len(self.layers), l0)):
-            for e1 in range(min(len(self.layers[l1].elements), e0)):
-                if self.layers[l0].elements[e0].collide(self.layers[l1].elements[e1].rect):
-                    print('_redraw_elements() trying to redraw')
-                    # Redraw everything that was behind the specified element
-                    rect1 = self.screen.blit(self.layers[l1].elements[e1].surface, self.layers[l0].elements[e0].rect)
-                    if self.layers[l0].elements[e0].draw:
-                        rect0 = self.screen.blit(self.layers[l0].elements[e0].surface, self.layers[l0].elements[e0].rect)
-                        rect1.union_ip(rect0)
-                    self.dirty_rects.append(rect1)
+        self.screen.blit(self.pause_symbol.surface, self.pause_symbol.rect)
                     
 
             

@@ -51,6 +51,8 @@ class BackgroundGrid(ScreenElement):
 
         self.screen_size = screen_size
         self.create_grid(line_density)
+        self._hor_dim:float = 0
+        self._vert_dim:float = 0
 
 
     def update(self):
@@ -72,14 +74,12 @@ class BackgroundGrid(ScreenElement):
 
         if line_density < 1 or line_density == None: line_density = 80
 
-        if (self.rect.width > self.rect.height):
-            line_dist = self.rect.height / line_density
-        else:
-            line_dist = self.rect.width / line_density
+        line_dist = max(self.rect.width, self.rect.height) / line_density
         print("line_dist = " + str(line_dist))
 
         # Draw the horizontal lines
         hor_lines_float = self.rect.height / line_dist
+        self._hor_dim = hor_lines_float
         hor_lines = int(hor_lines_float)
         hor_edge = hor_lines_float - hor_lines
         if hor_edge < 0.5: hor_edge += 1
@@ -90,6 +90,7 @@ class BackgroundGrid(ScreenElement):
 
         # Draw the vertical lines
         vert_lines_float = self.rect.width / line_dist
+        self._vert_dim = vert_lines_float
         vert_lines = int(vert_lines_float)
         vert_edge = vert_lines_float - vert_lines
         if vert_edge < 0.5: vert_edge += 1
@@ -99,6 +100,10 @@ class BackgroundGrid(ScreenElement):
             pygame.draw.line(self.surface, self.line_colour, (vert_coor, 0), (vert_coor, self.rect.height))
 
         self.dirty = True
+
+    def get_dimensions(self) -> tuple:
+        """Get the total number of cells in each dimension of the current grid, (vertical, horizontal)"""
+        return (self._vert_dim, self._hor_dim)
 
             
     # TODO determine if this is a desired feature or more hassle than it is worth
