@@ -71,8 +71,6 @@ class GameOfLife:
 
         # SCREEEN ELEMENTS
         self.screen_grid = ScreenGrid(self.screen_rect.size, self._grid_m, self._grid_n, self._screen_grid_line_dist)
-        #self.background = BackgroundGrid(self.screen_rect.size, self._grid_m, self._grid_n)
-
         self.pause_symbol = PauseButton(self.screen_rect.size)
         self.pause_symbol.rect.topleft = self.pause_symbol.rect.center
 
@@ -84,8 +82,8 @@ class GameOfLife:
         self.playing = False
 
 
-        #TODO remove, test
-        self.time_trigger = False
+        # Starting grid
+        self.set_grid(self.pattern_pulsar)
 
 
 
@@ -104,7 +102,7 @@ class GameOfLife:
 
             self.check_events()
 
-            self.TEST()
+            self.check_game_update()
 
             self.update_screen()
 
@@ -113,6 +111,8 @@ class GameOfLife:
         """Set whether the game is playing, or paused"""
         self.playing = playing
         self.pause_symbol.set_surface(playing)
+        
+        if playing: self._time0 = time.time() - max(0.1, self.settings.gol.tick_interval - 0.1)
 
 
 
@@ -121,20 +121,21 @@ class GameOfLife:
         isIntervalElapsed = False
         if self._time0 + self.settings.gol.tick_interval <= time.time():
             isIntervalElapsed = True
-            self._time0 = time.time() 
+            self._time0 = time.time()
         return isIntervalElapsed
 
 
 
 
-
-    def TEST(self):
-        if self.timer_interval():
-            pass
+    def check_game_update(self):
+        if self.playing and self.timer_interval():
+            self.iterate_game_of_life()
 
 
 
     def set_grid(self, cells:list[list[int]]):
+
+        self.grid.fill(False)
 
         # Find the length of the dimensions of 'cells'
         input_m = len(cells)
@@ -146,12 +147,10 @@ class GameOfLife:
         input_n = min(input_n, self.grid_n)
 
         input_offset = (int(self.grid_m/2 - input_m/2), int(self.grid_n/2 - input_n/2))
-        print('offset = ' + str(input_offset))
 
         for m in range(input_m):
             for n in range(input_n):
                 self.grid[m + input_offset[0], n + input_offset[1]] = cells[m][n] > 0
-                print('cell(' + str(m) + ', ' + str(n) + ') = ' + str(cells[m][n] > 0))
                 
 
         self.screen_grid.set_cells(self.grid)
@@ -164,34 +163,38 @@ class GameOfLife:
         
 
 
-    def Iterate_Game(self):
+    def iterate_game_of_life(self):
         
-        # list containing all cells that have changed this iteration
+        # list containing all cells that are life at the end of this iteration
         changed_cells = []
 
-        grid_dims = self.grid.shape
-        for m in range(grid_dims[0]):
-            for n in range(grid_dims[1]):
-                if m == 0 or n == 0 or m == grid_dims[0] - 1 or n == grid_dims[1] - 1:
-                    self.grid[m,n] = False
-                else:
-                    neighbours = 0
-                    for m1 in range(-1, 2):
-                        for n1 in range(-1, 2):
-                            neighbours += self.grid[m+m1, n+n1]
+        # new grid
+        new_grid = self.grid.copy()
 
-                    # If cell is alive
-                    if self.grid[m,n]:
-                        # Less than 2 live neighbours, or more than 3, cell dies
-                        if neighbours < 2 or neighbours > 3:
-                            self.grid[m,n] = False
-                            changed_cells.append((m, n, 0))
-                    # If cell is dead
-                    else:
-                        # Exactly 3 neighbours creates a new live cell
-                        if neighbours == 3:
-                            self.grid[m,n] = True
-                            changed_cells.append((m,n,1))
+        for m in range(1,self.grid_m-1):
+            for n in range(1,self.grid_n-1):
+
+                neighbours = 0
+                for m1 in range(-1, 2):
+                    for n1 in range(-1, 2):
+                        if m1 != 0 or n1 != 0:
+                            neighbours += self.grid[m + m1, n + n1]
+
+                # If cell is alive
+                if self.grid[m,n]:
+                    # Less than 2 live neighbours, or more than 3, cell dies
+                    if neighbours < 2 or neighbours > 3:
+                        new_grid[m,n] = False
+                        changed_cells.append((m,n,0))
+                # If cell is dead, and has exactly 3 neighbours, create a new live cell
+                elif neighbours == 3:
+                    new_grid[m,n] = True
+                    changed_cells.append((m,n,1))
+
+        self.grid = new_grid.copy()
+
+        #self.screen_grid.cells.set_cells_changed(changed_cells)
+        self.screen_grid.set_cells(self.grid)
 
         
 
@@ -237,7 +240,7 @@ class GameOfLife:
                 self.set_playing(not self.playing)
 
             case pygame.K_RETURN:
-                self.set_grid(self.pattern_pulsar)
+                self.set_grid(self.pattern_toad)
 
     def _handle_keyup_event(self, event: pygame.event.Event):
         """Handle events of kind 'key up'"""
@@ -267,17 +270,17 @@ class GameOfLife:
     def _screen_draw_all_elements(self):
         """Draw all elements onto the screen. In order of back-to-front"""
         # ORDER MATTERS, objects further down get drawn over(on top of) the ones before
-        self._screen_draw_grid()
         self._screen_draw_cells()
+        self._screen_draw_grid()
         self._screen_draw_pause_button()
-
-    def _screen_draw_grid(self):
-        """Draw the background grid onto screen (covers whole screen)"""
-        self.screen.blit(self.screen_grid.background.surface, self.screen_grid.background.rect)
 
     def _screen_draw_cells(self):
         """Draw the cells of the 'Game of Life' onto screen"""
         self.screen.blit(self.screen_grid.cells.surface, self.screen_grid.cells.rect)
+
+    def _screen_draw_grid(self):
+        """Draw the background grid onto screen (covers whole screen)"""
+        self.screen.blit(self.screen_grid.grid.surface, self.screen_grid.grid.rect)
 
     def _screen_draw_pause_button(self):
         """Draw the pause button onto screen"""
@@ -308,10 +311,10 @@ class GameOfLife:
           O
         '''
         self.pattern_toad = [
-            [0,1,0,0],
-            [0,1,1,0],
-            [0,1,1,0],
-            [0,0,1,0]
+            [0,0,0,0],
+            [0,1,1,1],
+            [1,1,1,0],
+            [0,0,0,0]
         ]
 
 

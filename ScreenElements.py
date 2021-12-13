@@ -168,6 +168,7 @@ class ScreenGrid:
             return (self._screen_edge_m, self._screen_edge_n)
 
 
+
     class Cells(ScreenElement):
         """Screen image of cells in Game of Life"""
 
@@ -181,10 +182,14 @@ class ScreenGrid:
         def __init__(self, screen_size:tuple, grid_cells_m:float, grid_cells_n:float, line_dist:float, screen_offset:tuple, background_colour, cell_colour) -> None:
             super().__init__()
 
-            self.surface = pygame.surface.Surface(screen_size, pygame.SRCALPHA)
-            self.rect = self.surface.get_rect()
             self._line_dist = line_dist
             self._screen_offset = screen_offset
+            self._background_colour = background_colour
+
+            self.surface = pygame.surface.Surface(screen_size)
+            self.surface.fill(self._background_colour)
+            self.rect = self.surface.get_rect()
+
             self._create_cell(background_colour, cell_colour)
 
 
@@ -199,14 +204,15 @@ class ScreenGrid:
             cell_rect.center = self._cell_rect.center
             self._cell.blit(cell, cell_rect)
             
-            cell_clear_size = self._line_dist * 0.9
-            self._cell_clear = pygame.surface.Surface((cell_clear_size, cell_clear_size), pygame.SRCALPHA)
+            cell_clear_size = self._line_dist * 0.95
+            self._cell_clear = pygame.surface.Surface((cell_clear_size, cell_clear_size))
             self._cell_clear.fill(background_colour)
             self._cell_clear.get_rect().center = self._cell_rect.center
 
 
         def _clear_surface(self):
-            self.surface = pygame.surface.Surface(self.rect.size, pygame.SRCALPHA)
+            self.surface = pygame.surface.Surface(self.rect.size)
+            self.surface.fill(self._background_colour)
             
 
         def set_cell(self, coor:tuple, alive:bool):
@@ -217,15 +223,20 @@ class ScreenGrid:
             else:
                 self.surface.blit(self._cell_clear, rect)
 
+        def set_cell_life(self, coor:tuple):
+            rect = self._cell_rect.copy()
+            rect.topleft = (coor[1] * self._line_dist - self._screen_offset[1], coor[0] * self._line_dist - self._screen_offset[0])
+            self.surface.blit(self._cell, rect)
+
 
         def set_cells_array(self, cells:np.ndarray):
-            if cells.ndim < 2: 
-                print('set_cells ndim = ' + str(cells.ndim)) 
-                return
+            if cells.ndim < 2: return
 
+            self._clear_surface()
             for m in range(cells.shape[0]):
                 for n in range(cells.shape[1]):
-                    self.set_cell((m,n), cells[m,n])
+                    if cells[m,n]:
+                        self.set_cell_life((m,n))
 
 
         def set_cells_list(self, life_cells:list[tuple], offset = (0,0), alive:bool = True):
@@ -271,12 +282,81 @@ class ScreenGrid:
             self.set_cells_centered(coor_list)
 
         
-        def set_cells_changed(self, changed_cells:list):
-            for cell in range(len(changed_cells)):
-                self.set_cell((cell[0],cell[1]), bool(cell[2]))
+        def set_cells_changed(self, changed_cells:list[tuple]):
+            for cell in changed_cells:
+                self.set_cell((cell[0],cell[1]), cell[2] > 0)
+
+        def set_cells_changed_2(self, life_cells:list[tuple]):
+            self._clear_surface()
+            for cell in life_cells:
+                self.set_cell((cell[0], cell[1]))
 
 
 
+
+
+
+
+
+    class Grid(ScreenElement):
+        """Background grid"""
+
+        _line_dist:float = 0.0
+        _screen_edge_m:float = 0.0
+        _screen_edge_n:float = 0.0
+
+        def __init__(self, screen_size:tuple, grid_cells_m:float, grid_cells_n:float, line_dist:float, line_colour) -> None:
+            super().__init__()
+            self._grid_cells_m = grid_cells_m
+            self._grid_cells_n = grid_cells_n
+            self._line_dist = line_dist
+            self._create_grid(screen_size, line_colour)
+
+
+        def _create_grid(self, screen_size:tuple, line_colour):
+            """Create the background-grid surface"""
+
+            self.surface = pygame.surface.Surface(screen_size, pygame.SRCALPHA)
+            self.rect = self.surface.get_rect()
+            
+            #TODO remove, test, two diagonal lines which cross eachother in the center of the screen
+            #pygame.draw.line(self.surface, (200, 40, 40), (0, 0), (self.rect.width, self.rect.height))
+            #pygame.draw.line(self.surface, (200, 40, 40), (0, self.rect.height), (self.rect.width, 0))
+
+            # Draw the horizontal lines (rows, left-right)
+            self._screen_edge_m = self._grid_cells_m % 1
+            if self._screen_edge_m < 0.5: self._screen_edge_m += 1
+            self._screen_edge_m *= 0.5 * self._line_dist
+            for i in range(0, int(self._grid_cells_m) + 1):
+                hor_coor = (self._line_dist * i) + self._screen_edge_m
+                pygame.draw.line(self.surface, line_colour, (0, hor_coor), (self.rect.width, hor_coor))
+
+            # Draw the vertical lines (columns, up-down)
+            self._screen_edge_n = self._grid_cells_n % 1
+            if self._screen_edge_n < 0.5: self._screen_edge_n += 1
+            self._screen_edge_n *= 0.5 * self._line_dist
+            for i in range(0, int(self._grid_cells_n) + 1):
+                vert_coor = (self._line_dist * i) + self._screen_edge_n
+                pygame.draw.line(self.surface, line_colour, (vert_coor, 0), (vert_coor, self.rect.height))
+
+            self.dirty = True
+
+        def get_dimensions_float(self) -> tuple:
+            """Get the total number of cells in each dimension of the current grid, (m, n)"""
+            return (self._grid_cells_n, self._grid_cells_m)
+
+        def get_dimensions(self) -> tuple:
+            """Get the total number of cells in each dimension of the current grid, (m, n)"""
+            return (int(self._grid_cells_m), int(self._grid_cells_n))
+
+        def get_screen_offset(self) ->tuple:
+            """Get the screen 'buffer' edges of the grid. (offset)"""
+            return (self._screen_edge_m, self._screen_edge_n)
+
+        def _draw_diagonal_center_lines(self):
+            """Debug function. Draws two lines, one top-left to bottom right, one top-right to bottom left, resulting in them crossing at the center of the screen"""
+            pygame.draw.line(self.surface, (200, 40, 40), (0, 0), (self.rect.width, self.rect.height))
+            pygame.draw.line(self.surface, (200, 40, 40), (0, self.rect.height), (self.rect.width, 0))
 
 
 
@@ -302,10 +382,9 @@ class ScreenGrid:
             self._grid_cells_n = grid_cells_n
             self._line_dist = line_dist
 
-            self.background = self.Background(self.screen_size, grid_cells_m, grid_cells_n, line_dist, self.background_colour, self.line_colour)
-            self.cells = self.Cells(self.screen_size, grid_cells_m, grid_cells_n, line_dist, self.background.get_screen_offset(), self.background_colour, self.cell_colour)
+            self.grid = self.Grid(self.screen_size, grid_cells_m, grid_cells_n, line_dist, self.line_colour)
+            self.cells = self.Cells(self.screen_size, grid_cells_m, grid_cells_n, line_dist, self.grid.get_screen_offset(), self.background_colour, self.cell_colour)
 
-            self.cells.set_cells_list([(40,20),(40,21),(40,22),(41,20),(41,21),(41,22)])
 
     def set_cells(self, cells:np.ndarray):
         self.cells.set_cells_array(cells)
