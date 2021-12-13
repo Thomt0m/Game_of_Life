@@ -1,5 +1,8 @@
+# General settings
 
 class Settings:
+
+
 
     class GameOfLifeSettings:
 
@@ -8,11 +11,6 @@ class Settings:
             self.grid_cells_screen = 80
 
 
-    class BackgroundGridSettings:
-
-        def __init__(self) -> None:
-            self.background_colour = (240,240,240)
-
 
 
     
@@ -20,4 +18,3 @@ class Settings:
 
     def __init__(self) -> None:
         self.gol = Settings.GameOfLifeSettings()
-        self.background = Settings.BackgroundGridSettings()

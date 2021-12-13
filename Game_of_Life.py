@@ -193,8 +193,7 @@ class GameOfLife:
 
         self.grid = new_grid.copy()
 
-        #self.screen_grid.cells.set_cells_changed(changed_cells)
-        self.screen_grid.set_cells(self.grid)
+        self.screen_grid.cells.set_cells_changed(changed_cells)
 
         
 
